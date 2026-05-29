@@ -128,7 +128,8 @@ export class Player {
     this.candidatePosition.addScaledVector(this.moveDirection, speed * deltaSeconds);
 
     const sampledGroundY = this.sampleGroundY(this.candidatePosition, ground);
-    const isStepTooHigh = sampledGroundY > this.groundY + this.maxStepUp;
+    const reachableGroundY = this.groundY + this.maxStepUp + this.verticalOffset;
+    const isStepTooHigh = sampledGroundY > reachableGroundY;
 
     if (!isStepTooHigh && !this.hasHorizontalCollision(ground, this.moveDirection, speed * deltaSeconds)) {
       this.root.position.x = this.candidatePosition.x;
@@ -190,7 +191,8 @@ export class Player {
       this.raycaster.set(this.rayOrigin, this.horizontalDirection);
 
       const [hit] = this.raycaster.intersectObject(ground, true);
-      if (hit && hit.point.y > this.groundY + this.maxStepUp * 0.5) {
+      const collisionClearance = this.groundY + this.maxStepUp * 0.5 + this.verticalOffset;
+      if (hit && hit.point.y > collisionClearance) {
         return true;
       }
     }

@@ -47,6 +47,8 @@ export class PlayerController {
       this.debugOverrideRemaining = 0;
     }
 
+    this.stateMachine.setInputSnapshot(moveInput, sprinting, crouching);
+
     for (const action of gameplayActions) {
       this.stateMachine.handleAction(action);
     }

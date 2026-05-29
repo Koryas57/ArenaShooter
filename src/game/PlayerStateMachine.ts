@@ -65,15 +65,17 @@ export class PlayerStateMachine {
   private crouched = false;
   private lastMoving = false;
   private lastSprinting = false;
-  private jumpElapsed = 0;
-  private readonly jumpTotalDuration: number;
-  private readonly jumpLoopDuration = 0.24;
-  private readonly jumpHeight = 1.18;
+  private jumpingWithSprint = false;
+  private jumpOffset = 0;
+  private jumpVelocity = 0;
+  private readonly jumpImpulse = 14.7;
+  private readonly jumpGravity = 44;
+  private readonly maxFallSpeed = -28;
+  private readonly jumpStartDuration = 0.16;
+  private readonly jumpLandDuration = 0.16;
   private lastMatchedClip = 'None';
 
   constructor(private readonly player: Player) {
-    this.jumpTotalDuration =
-      this.durationFor('jumpingStart') + this.jumpLoopDuration + this.durationFor('jumpingLand');
     this.enterLocomotion(false, false, true);
   }
 
@@ -81,6 +83,12 @@ export class PlayerStateMachine {
     if (action.type === 'jump') {
       this.tryJump();
     }
+  }
+
+  setInputSnapshot(moveInput: Vector2, sprinting: boolean, crouching: boolean): void {
+    this.lastMoving = moveInput.lengthSq() > 0.0001;
+    this.lastSprinting = sprinting;
+    this.crouched = crouching;
   }
 
   update(
@@ -94,8 +102,8 @@ export class PlayerStateMachine {
     this.lastSprinting = sprinting;
     this.crouched = crouching;
 
+    const verticalOffset = this.updateJumpPhysics(deltaSeconds);
     this.updateStateTransitions();
-    const verticalOffset = this.updateJumpArc(deltaSeconds);
 
     return {
       state: this.state,
@@ -132,18 +140,20 @@ export class PlayerStateMachine {
       return;
     }
 
-    if (this.state === 'jumpingStart' && this.elapsedInState >= this.oneShotDuration) {
+    if (this.state === 'jumpingStart' && this.elapsedInState >= this.jumpStartDuration) {
       this.enter('jumpingLoop');
       return;
     }
 
-    if (this.state === 'jumpingLoop' && this.elapsedInState >= this.jumpLoopDuration) {
+    if (this.state === 'jumpingLoop' && this.jumpOffset <= 0 && this.jumpVelocity <= 0) {
       this.enter('jumpingLand');
       return;
     }
 
-    if (this.state === 'jumpingLand' && this.elapsedInState >= this.oneShotDuration) {
-      this.jumpElapsed = 0;
+    if (this.state === 'jumpingLand' && this.elapsedInState >= this.jumpLandDuration) {
+      this.jumpOffset = 0;
+      this.jumpVelocity = 0;
+      this.jumpingWithSprint = false;
       this.player.setVerticalOffset(0);
       this.enterLocomotion(this.lastMoving, this.lastSprinting);
       return;
@@ -159,7 +169,9 @@ export class PlayerStateMachine {
       return;
     }
 
-    this.jumpElapsed = 0;
+    this.jumpOffset = 0;
+    this.jumpVelocity = this.jumpImpulse;
+    this.jumpingWithSprint = this.lastSprinting;
     this.enter('jumpingStart');
   }
 
@@ -202,17 +214,23 @@ export class PlayerStateMachine {
     this.oneShotDuration = loop ? Infinity : this.durationFor(state);
   }
 
-  private updateJumpArc(deltaSeconds: number): number {
-    if (!this.isJumpingState()) {
+  private updateJumpPhysics(deltaSeconds: number): number {
+    if (this.state !== 'jumpingStart' && this.state !== 'jumpingLoop') {
       this.player.setVerticalOffset(0);
+      if (this.state !== 'jumpingLand') {
+        this.jumpOffset = 0;
+        this.jumpVelocity = 0;
+      }
       return 0;
     }
 
-    this.jumpElapsed += deltaSeconds;
-    const progress = Math.min(1, this.jumpElapsed / Math.max(this.jumpTotalDuration, 0.1));
-    const offset = Math.sin(progress * Math.PI) * this.jumpHeight;
-    this.player.setVerticalOffset(offset);
-    return offset;
+    this.jumpVelocity = Math.max(
+      this.maxFallSpeed,
+      this.jumpVelocity - this.jumpGravity * deltaSeconds,
+    );
+    this.jumpOffset = Math.max(0, this.jumpOffset + this.jumpVelocity * deltaSeconds);
+    this.player.setVerticalOffset(this.jumpOffset);
+    return this.jumpOffset;
   }
 
   private durationFor(state: PlayerState): number {
@@ -233,7 +251,10 @@ export class PlayerStateMachine {
       case 'jumpingLoop':
       case 'jumpingLand':
       case 'rolling':
-        return this.lastMoving ? 'walk' : 'none';
+        if (!this.lastMoving) {
+          return 'none';
+        }
+        return this.jumpingWithSprint ? 'sprint' : 'walk';
       case 'sprinting':
         return 'sprint';
       case 'crouchWalk':

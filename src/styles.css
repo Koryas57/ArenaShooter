@@ -77,6 +77,244 @@ body {
   height: 18px;
 }
 
+.ammo-counter {
+  position: absolute;
+  right: 22px;
+  bottom: 20px;
+  min-width: 86px;
+  border: 1px solid rgba(170, 198, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(7, 12, 18, 0.58);
+  color: rgba(245, 252, 255, 0.94);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.combat-stats {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: none;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.combat-stats__item {
+  min-width: 86px;
+  border: 1px solid rgba(170, 198, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(7, 12, 18, 0.58);
+  color: rgba(245, 252, 255, 0.94);
+  text-align: center;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.combat-stats__item strong {
+  display: block;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.combat-stats__item span {
+  display: block;
+  margin-top: 4px;
+  color: #c9d8ee;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.health-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  width: min(340px, calc(100vw - 180px));
+  min-width: 180px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(170, 198, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(7, 12, 18, 0.58);
+  color: rgba(245, 252, 255, 0.94);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.health-panel__label {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.health-panel__bar {
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.health-panel__fill {
+  width: calc(var(--health-ratio, 1) * 100%);
+  height: 100%;
+  background: linear-gradient(90deg, #2ff06d, #f6e653);
+  box-shadow: 0 0 14px rgba(57, 255, 128, 0.45);
+  transition: width 140ms ease;
+}
+
+.damage-indicator {
+  position: absolute;
+  inset: 0;
+  opacity: var(--damage-opacity, 0);
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 52%, rgba(255, 0, 0, 0) 34%, rgba(255, 44, 44, 0.18) 66%, rgba(120, 0, 0, 0.72) 100%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.42), rgba(255, 0, 0, 0) 18%, rgba(255, 0, 0, 0) 82%, rgba(255, 0, 0, 0.42));
+  box-shadow:
+    inset 0 0 76px rgba(255, 0, 0, 0.7),
+    inset 0 0 180px rgba(70, 0, 0, 0.55);
+  mix-blend-mode: screen;
+  transition: opacity 70ms linear;
+}
+
+.damage-indicator.is-active {
+  animation: damageThreatPulse 0.22s linear;
+}
+
+@keyframes damageThreatPulse {
+  0% {
+    filter: saturate(1.8);
+    transform: scale(1);
+  }
+
+  45% {
+    filter: saturate(2.6);
+    transform: scale(1.015);
+  }
+
+  100% {
+    filter: saturate(1.35);
+    transform: scale(1);
+  }
+}
+
+.reload-prompt {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 229, 120, 0.92);
+  border-radius: 8px;
+  padding: 14px 22px;
+  background: rgba(16, 8, 4, 0.72);
+  color: #ffe86c;
+  font-size: clamp(28px, 5vw, 62px);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 0.95;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 10px rgba(255, 94, 38, 0.9),
+    0 4px 0 rgba(0, 0, 0, 0.75);
+  box-shadow:
+    0 0 24px rgba(255, 94, 38, 0.55),
+    0 18px 36px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+  animation: reloadArcadeBlink 0.58s steps(2, end) infinite;
+}
+
+.reload-prompt.is-hidden {
+  display: none;
+}
+
+@keyframes reloadArcadeBlink {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.38;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.game-over-panel,
+.pause-panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  background: rgba(3, 5, 8, 0.58);
+  color: #fff4f0;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.game-over-panel.is-hidden,
+.pause-panel.is-hidden {
+  display: none;
+}
+
+.game-over-panel strong,
+.pause-panel strong {
+  font-size: clamp(48px, 9vw, 120px);
+  font-weight: 900;
+  line-height: 0.9;
+  text-shadow:
+    0 0 18px rgba(255, 48, 48, 0.9),
+    0 6px 0 rgba(0, 0, 0, 0.72);
+}
+
+.game-over-panel span,
+.pause-panel span {
+  color: #ffd4cf;
+  font-size: clamp(14px, 2vw, 24px);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.restart-button {
+  justify-self: center;
+  min-width: 150px;
+  border: 1px solid rgba(255, 230, 220, 0.62);
+  border-radius: 8px;
+  padding: 12px 18px;
+  background: rgba(255, 64, 54, 0.24);
+  color: #fff4f0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 900;
+  text-transform: uppercase;
+  pointer-events: auto;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.restart-button:active {
+  transform: scale(0.97);
+}
+
 .status-strip {
   position: absolute;
   top: 14px;
@@ -202,9 +440,266 @@ body {
   line-height: 1.5;
 }
 
+.mobile-hud {
+  position: absolute;
+  inset: 0;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.mobile-left-zone,
+.mobile-look-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.mobile-left-zone {
+  left: 0;
+  width: 48%;
+}
+
+.mobile-look-zone {
+  right: 0;
+  width: 52%;
+}
+
+.mobile-joystick {
+  position: absolute;
+  left: 22%;
+  bottom: 18%;
+  width: 132px;
+  height: 132px;
+  border: 2px solid rgba(225, 239, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(8, 14, 22, 0.28);
+  box-shadow:
+    inset 0 0 24px rgba(180, 215, 255, 0.12),
+    0 12px 34px rgba(0, 0, 0, 0.24);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.94);
+  transition: opacity 110ms ease, transform 110ms ease;
+}
+
+.mobile-joystick.is-active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.mobile-joystick__knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 58px;
+  height: 58px;
+  border: 2px solid rgba(255, 255, 255, 0.48);
+  border-radius: 50%;
+  background: rgba(230, 242, 255, 0.25);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  transform: translate(-50%, -50%);
+}
+
+.mobile-button {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 62px;
+  min-height: 62px;
+  border: 2px solid rgba(245, 252, 255, 0.42);
+  border-radius: 999px;
+  background: rgba(20, 24, 26, 0.34);
+  color: rgba(247, 252, 255, 0.94);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 22px rgba(255, 255, 255, 0.08),
+    0 14px 28px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  touch-action: none;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-button.is-active {
+  background: rgba(72, 158, 255, 0.46);
+  border-color: rgba(255, 255, 255, 0.7);
+  transform: scale(0.96);
+}
+
+.mobile-fire {
+  right: max(28px, env(safe-area-inset-right));
+  bottom: 78px;
+  width: 104px;
+  height: 104px;
+  border-color: rgba(255, 210, 210, 0.5);
+  background: rgba(160, 26, 34, 0.34);
+  font-size: 13px;
+}
+
+.mobile-reload {
+  right: max(150px, calc(env(safe-area-inset-right) + 150px));
+  bottom: 50px;
+}
+
+.mobile-jump {
+  right: max(124px, calc(env(safe-area-inset-right) + 124px));
+  bottom: 150px;
+}
+
+.mobile-crouch {
+  right: max(34px, env(safe-area-inset-right));
+  bottom: 194px;
+  width: 70px;
+  height: 70px;
+}
+
+.mobile-pause {
+  right: max(18px, env(safe-area-inset-right));
+  top: max(16px, env(safe-area-inset-top));
+  min-width: 74px;
+  min-height: 42px;
+  border-radius: 8px;
+}
+
+.mobile-weapon-info {
+  position: absolute;
+  left: 50%;
+  bottom: max(0px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: 72px 1fr 78px 64px;
+  gap: 5px 10px;
+  width: min(430px, 48vw);
+  min-width: 330px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(212, 255, 200, 0.22);
+  border-radius: 4px 4px 0 0;
+  padding: 8px 14px 9px;
+  background:
+    linear-gradient(180deg, rgba(85, 160, 72, 0.5), rgba(42, 95, 42, 0.58)),
+    rgba(7, 12, 18, 0.42);
+  color: #eef4ff;
+  text-align: left;
+  box-shadow:
+    inset 0 0 30px rgba(204, 255, 170, 0.1),
+    0 14px 28px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-weapon-info__mode,
+.mobile-weapon-info__weapon,
+.mobile-weapon-info__ammo,
+.mobile-weapon-info__hp {
+  min-width: 0;
+}
+
+.mobile-weapon-info__mode {
+  align-self: center;
+  border-radius: 2px;
+  padding: 5px 6px;
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(248, 255, 245, 0.92);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.mobile-weapon-info__weapon {
+  align-self: center;
+  color: rgba(248, 255, 245, 0.96);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.mobile-weapon-info span {
+  display: block;
+  color: #d7ead0;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.mobile-weapon-info strong {
+  display: block;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mobile-weapon-info__ammo,
+.mobile-weapon-info__hp {
+  align-self: center;
+}
+
+.mobile-weapon-info__ammo-bar,
+.mobile-weapon-info__health-bar {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.46);
+}
+
+.mobile-weapon-info__ammo-bar {
+  grid-column: 1 / 3;
+}
+
+.mobile-weapon-info__health-bar {
+  grid-column: 3 / 5;
+}
+
+.mobile-weapon-info__ammo-bar::before,
+.mobile-weapon-info__health-bar::before {
+  content: "";
+  display: block;
+  height: 100%;
+}
+
+.mobile-weapon-info__ammo-bar::before {
+  width: calc(var(--mobile-ammo-ratio, 1) * 100%);
+  background: linear-gradient(90deg, #f5f3d1, #ffffff);
+}
+
+.mobile-weapon-info__health-bar::before {
+  width: calc(var(--mobile-health-ratio, 1) * 100%);
+  background: linear-gradient(90deg, #2ff06d, #f6e653);
+}
+
 @media (max-width: 720px) {
   .helper-overlay {
     width: min(330px, calc(100vw - 28px));
     max-height: 62vh;
+  }
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 900px) {
+  .mobile-hud {
+    display: block;
+  }
+
+  .ammo-counter {
+    display: none;
+  }
+
+  .health-panel {
+    display: none;
+  }
+
+  .helper-overlay {
+    max-height: 38vh;
+    pointer-events: none;
   }
 }

@@ -30,11 +30,46 @@ export interface FpsPistolDebugSnapshot {
   rotationOffset: string;
   scale: number;
   muzzleLocalOffset: string;
+  weaponState: FpsPistolAnimationState;
   currentAnimation: string;
+  stateRemaining: number;
   recoil: number;
 }
 
 const FPS_PISTOL_PATH = "/assets/weapons/fps-pistol/fps-pistol.gltf";
+
+export type FpsPistolAnimationState =
+  | "Idle"
+  | "Fire"
+  | "Reload"
+  | "Empty"
+  | "Equip"
+  | "JumpStart"
+  | "JumpAirborne"
+  | "JumpLand";
+
+export type FpsPistolMovementState =
+  | "Grounded"
+  | "JumpStart"
+  | "JumpAirborne"
+  | "JumpLand";
+
+const LOOPING_WEAPON_STATES = new Set<FpsPistolAnimationState>([
+  "Idle",
+  "Empty",
+  "JumpAirborne",
+]);
+
+const STATE_KEYWORDS: Record<FpsPistolAnimationState, string[]> = {
+  Idle: ["idle"],
+  Fire: ["fire", "shoot"],
+  Reload: ["reload"],
+  Empty: ["empty", "idle"],
+  Equip: ["equip", "draw"],
+  JumpStart: ["jump_start"],
+  JumpAirborne: ["jump"],
+  JumpLand: ["jump_end", "jump_land", "land"],
+};
 
 export class FpsPistolViewModel {
   readonly group = new Group();
@@ -45,13 +80,14 @@ export class FpsPistolViewModel {
     recoilOffset: 0.07,
     swayAmount: 0.00042,
     bobAmount: 0.014,
-    muzzleLocalOffset: { x: -0.01, y: 0.34, z: 1.0 },
+    muzzleLocalOffset: { x: -0.48, y: 1.85, z: 0.96 },
   };
 
   private readonly loader = new GLTFLoader();
   private readonly muzzleSocket = new Object3D();
   private readonly mouseSway = new Vector2();
   private readonly muzzleWorldPosition = new Vector3();
+  private readonly muzzleWorldDirection = new Vector3();
   private readonly muzzleFlash = new Mesh(
     new SphereGeometry(0.04, 10, 8),
     new MeshBasicMaterial({
@@ -62,11 +98,19 @@ export class FpsPistolViewModel {
     }),
   );
   private readonly actions = new Map<string, AnimationAction>();
+  private readonly stateClips = new Map<
+    FpsPistolAnimationState,
+    AnimationClip
+  >();
   private mixer: AnimationMixer | null = null;
   private model: Object3D | null = null;
-  private idleAction: AnimationAction | null = null;
   private currentAction: AnimationAction | null = null;
   private currentAnimation = "None";
+  private state: FpsPistolAnimationState = "Equip";
+  private stateRemaining = 0;
+  private shouldEnterEmptyAfterFire = false;
+  private emptyLocked = false;
+  private desiredMovementState: FpsPistolAnimationState = "Idle";
   private clips: AnimationClip[] = [];
   private recoil = 0;
   private flashTime = 0;
@@ -93,6 +137,7 @@ export class FpsPistolViewModel {
 
       this.model = gltf.scene;
       this.model.name = "FpsPistol_ViewModel";
+      this.group.visible = false;
       this.model.traverse((child) => {
         child.frustumCulled = false;
       });
@@ -101,7 +146,11 @@ export class FpsPistolViewModel {
       this.findOrCreateMuzzleSocket();
       this.setupAnimations(gltf);
       this.applyBaseTransform();
-      this.playLoop("idle");
+      if (!this.transitionTo("Equip", { fadeSeconds: 0, restart: true })) {
+        this.transitionTo("Idle", { fadeSeconds: 0, restart: true });
+      }
+      this.mixer?.update(1 / 60);
+      this.group.visible = true;
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new Error(
@@ -115,13 +164,17 @@ export class FpsPistolViewModel {
     mouseDelta: Vector2,
     moving: boolean,
     sprinting: boolean,
+    movementState: FpsPistolMovementState,
   ): void {
+    this.desiredMovementState = this.resolveDesiredMovementState(movementState);
     this.recoil = Math.max(0, this.recoil - deltaSeconds * 8);
     this.flashTime = Math.max(0, this.flashTime - deltaSeconds * 18);
     this.bobTime += moving
       ? deltaSeconds * (sprinting ? 12.5 : 8.5)
       : deltaSeconds * 2;
     this.mixer?.update(deltaSeconds);
+    this.updateAnimationState(deltaSeconds);
+    this.syncMovementAnimation(movementState);
 
     this.mouseSway.x +=
       (-mouseDelta.x * this.config.swayAmount - this.mouseSway.x) * 0.16;
@@ -153,19 +206,74 @@ export class FpsPistolViewModel {
     this.muzzleFlash.scale.setScalar(1 + this.flashTime * 2.4);
   }
 
-  shoot(): void {
-    this.recoil = Math.min(1, this.recoil + 1);
-    this.flashTime = 1;
-    this.playOneShot("shoot");
+  canFire(): boolean {
+    return this.state !== "Reload" && this.state !== "Equip";
   }
 
-  reload(): void {
-    this.playOneShot("reload");
+  canReload(): boolean {
+    return this.state !== "Reload" && this.state !== "Equip";
+  }
+
+  isReloading(): boolean {
+    return this.state === "Reload";
+  }
+
+  isEquipping(): boolean {
+    return this.state === "Equip";
+  }
+
+  getState(): FpsPistolAnimationState {
+    return this.state;
+  }
+
+  setVisible(visible: boolean): void {
+    this.group.visible = visible;
+  }
+
+  shoot(enterEmptyAfterFire: boolean): boolean {
+    if (!this.canFire()) {
+      return false;
+    }
+
+    if (!this.transitionTo("Fire", { fadeSeconds: 0.045, restart: true })) {
+      return false;
+    }
+
+    this.emptyLocked = false;
+    this.shouldEnterEmptyAfterFire = enterEmptyAfterFire;
+    this.recoil = Math.min(1, this.recoil + 1);
+    this.flashTime = 1;
+    return true;
+  }
+
+  reload(): boolean {
+    if (!this.canReload()) {
+      return false;
+    }
+
+    this.shouldEnterEmptyAfterFire = false;
+    this.emptyLocked = false;
+    return this.transitionTo("Reload", { fadeSeconds: 0.08, restart: true });
+  }
+
+  showEmpty(): boolean {
+    this.shouldEnterEmptyAfterFire = false;
+    this.emptyLocked = true;
+    return this.transitionTo("Empty", { fadeSeconds: 0.12 });
   }
 
   getMuzzleWorldPosition(target = new Vector3()): Vector3 {
     this.muzzleSocket.getWorldPosition(this.muzzleWorldPosition);
     return target.copy(this.muzzleWorldPosition);
+  }
+
+  getMuzzleWorldDirection(target = new Vector3()): Vector3 {
+    this.muzzleSocket.updateWorldMatrix(true, false);
+    this.muzzleWorldDirection
+      .set(0, 0, 1)
+      .transformDirection(this.muzzleSocket.matrixWorld)
+      .normalize();
+    return target.copy(this.muzzleWorldDirection);
   }
 
   getDebug(): FpsPistolDebugSnapshot {
@@ -178,7 +286,11 @@ export class FpsPistolViewModel {
       rotationOffset: `${rotation.x.toFixed(2)}, ${rotation.y.toFixed(2)}, ${rotation.z.toFixed(2)}`,
       scale: this.config.scale,
       muzzleLocalOffset: `${muzzle.x.toFixed(2)}, ${muzzle.y.toFixed(2)}, ${muzzle.z.toFixed(2)}`,
+      weaponState: this.state,
       currentAnimation: this.currentAnimation,
+      stateRemaining: Number.isFinite(this.stateRemaining)
+        ? this.stateRemaining
+        : 0,
       recoil: this.recoil,
     };
   }
@@ -195,61 +307,172 @@ export class FpsPistolViewModel {
       this.actions.set(clip.name, this.mixer.clipAction(clip));
     }
 
-    const idleClip = this.findClip(["idle"]);
-    this.idleAction = idleClip
-      ? (this.actions.get(idleClip.name) ?? null)
-      : null;
-    this.mixer.addEventListener("finished", () => {
-      this.playLoop("idle");
+    this.resolveStateClips();
+  }
+
+  private updateAnimationState(deltaSeconds: number): void {
+    if (LOOPING_WEAPON_STATES.has(this.state)) {
+      return;
+    }
+
+    this.stateRemaining -= deltaSeconds;
+    if (this.stateRemaining > 0) {
+      return;
+    }
+
+    if (this.state === "Fire" && this.shouldEnterEmptyAfterFire) {
+      this.shouldEnterEmptyAfterFire = false;
+      this.emptyLocked = true;
+      this.transitionTo("Empty", { fadeSeconds: 0.1 });
+      return;
+    }
+
+    this.shouldEnterEmptyAfterFire = false;
+    this.transitionTo(this.desiredMovementState, { fadeSeconds: 0.1 });
+  }
+
+  private syncMovementAnimation(movementState: FpsPistolMovementState): void {
+    if (
+      this.state === "Fire" ||
+      this.state === "Reload" ||
+      this.state === "Equip"
+    ) {
+      return;
+    }
+
+    if (this.emptyLocked) {
+      if (this.state !== "Empty") {
+        this.transitionTo("Empty", { fadeSeconds: 0.1 });
+      }
+      return;
+    }
+
+    const nextState = this.resolveDesiredMovementState(movementState);
+    if (nextState === this.state) {
+      return;
+    }
+
+    if (
+      this.state === "JumpLand" &&
+      this.stateRemaining > 0 &&
+      nextState === "Idle"
+    ) {
+      return;
+    }
+
+    this.transitionTo(nextState, {
+      fadeSeconds:
+        nextState === "JumpStart"
+          ? 0.14
+          : movementState === "Grounded"
+            ? 0.12
+            : 0.08,
+      restart: nextState === "JumpStart" || nextState === "JumpLand",
+      startAtNormalized: nextState === "JumpStart" ? 0.16 : 0,
     });
   }
 
-  private playLoop(keyword: "idle"): void {
-    const clip = this.findClip([keyword]);
+  private transitionTo(
+    state: FpsPistolAnimationState,
+    options: {
+      fadeSeconds: number;
+      restart?: boolean;
+      startAtNormalized?: number;
+    },
+  ): boolean {
+    const clip = this.stateClips.get(state);
     if (!clip) {
-      return;
-    }
-
-    const action = this.actions.get(clip.name);
-    if (!action || action === this.currentAction) {
-      return;
-    }
-
-    this.currentAction?.fadeOut(0.08);
-    action.reset();
-    action.setLoop(LoopRepeat, Infinity);
-    action.clampWhenFinished = false;
-    action.fadeIn(0.08).play();
-    this.currentAction = action;
-    this.currentAnimation = clip.name;
-  }
-
-  private playOneShot(kind: "shoot" | "reload" | "draw"): void {
-    const keywordSets: Record<typeof kind, string[]> = {
-      shoot: ["shoot", "fire"],
-      reload: ["reload"],
-      draw: ["draw", "equip"],
-    };
-    const clip = this.findClip(keywordSets[kind]);
-    if (!clip) {
-      return;
+      return false;
     }
 
     const action = this.actions.get(clip.name);
     if (!action) {
-      return;
+      return false;
     }
 
-    this.currentAction?.fadeOut(0.04);
+    const loop = LOOPING_WEAPON_STATES.has(state);
+    const isSameAction = action === this.currentAction;
+    const shouldRestart = options.restart ?? false;
+
+    if (isSameAction && !shouldRestart && this.state === state) {
+      this.state = state;
+      this.stateRemaining = loop ? Infinity : Math.max(0.05, clip.duration);
+      this.currentAnimation = clip.name;
+      return true;
+    }
+
     action.reset();
-    action.setLoop(LoopOnce, 1);
-    action.clampWhenFinished = false;
-    action.fadeIn(0.035).play();
+    action.time =
+      clip.duration *
+      Math.min(0.9, Math.max(0, options.startAtNormalized ?? 0));
+    action.enabled = true;
+    action.setEffectiveTimeScale(1);
+    action.setEffectiveWeight(1);
+    action.setLoop(loop ? LoopRepeat : LoopOnce, loop ? Infinity : 1);
+    action.clampWhenFinished = !loop;
+    action.play();
+
+    if (this.currentAction && this.currentAction !== action) {
+      action.crossFadeFrom(this.currentAction, options.fadeSeconds, false);
+    } else if (options.fadeSeconds > 0) {
+      action.fadeIn(options.fadeSeconds);
+    }
+
     this.currentAction = action;
+    this.state = state;
     this.currentAnimation = clip.name;
+    this.stateRemaining = loop ? Infinity : Math.max(0.05, clip.duration);
+    return true;
   }
 
-  private findClip(keywords: string[]): AnimationClip | null {
+  private resolveStateClips(): void {
+    for (const state of Object.keys(
+      STATE_KEYWORDS,
+    ) as FpsPistolAnimationState[]) {
+      const clip = this.findClipForState(state);
+      if (clip) {
+        this.stateClips.set(state, clip);
+      }
+    }
+
+    const idleClip = this.stateClips.get("Idle");
+    if (idleClip && !this.stateClips.has("Equip")) {
+      this.stateClips.set("Equip", idleClip);
+    }
+
+    if (idleClip && !this.stateClips.has("Empty")) {
+      this.stateClips.set("Empty", idleClip);
+    }
+
+    for (const jumpState of [
+      "JumpStart",
+      "JumpAirborne",
+      "JumpLand",
+    ] as const) {
+      if (idleClip && !this.stateClips.has(jumpState)) {
+        this.stateClips.set(jumpState, idleClip);
+      }
+    }
+  }
+
+  private findClipForState(
+    state: FpsPistolAnimationState,
+  ): AnimationClip | null {
+    return this.findClip(STATE_KEYWORDS[state], {
+      preferEmpty: state === "Empty",
+      avoidEmpty: state !== "Empty",
+      avoidMagnum: state === "Fire",
+    });
+  }
+
+  private findClip(
+    keywords: string[],
+    options: {
+      preferEmpty?: boolean;
+      avoidEmpty?: boolean;
+      avoidMagnum?: boolean;
+    } = {},
+  ): AnimationClip | null {
     let best: { clip: AnimationClip; score: number } | null = null;
 
     for (const clip of this.clips) {
@@ -261,7 +484,15 @@ export class FpsPistolViewModel {
         }
       }
 
-      if (name.includes("empty")) {
+      if (options.preferEmpty && name.includes("empty")) {
+        score += 80;
+      }
+
+      if (options.avoidEmpty && name.includes("empty")) {
+        score -= 80;
+      }
+
+      if (options.avoidMagnum && name.includes("magnum")) {
         score -= 20;
       }
 
@@ -271,6 +502,21 @@ export class FpsPistolViewModel {
     }
 
     return best && best.score > 0 ? best.clip : null;
+  }
+
+  private resolveDesiredMovementState(
+    movementState: FpsPistolMovementState,
+  ): FpsPistolAnimationState {
+    switch (movementState) {
+      case "JumpStart":
+        return "JumpStart";
+      case "JumpAirborne":
+        return "JumpAirborne";
+      case "JumpLand":
+        return "JumpLand";
+      default:
+        return "Idle";
+    }
   }
 
   private findOrCreateMuzzleSocket(): void {

@@ -68,6 +68,19 @@ export class CameraController {
     this.camera.lookAt(this.lookTarget);
   }
 
+  updateDeath(deltaSeconds: number, playerPosition: Vector3): void {
+    const targetPosition = this.lookTarget.set(
+      playerPosition.x,
+      playerPosition.y + 0.28,
+      playerPosition.z + 0.35,
+    );
+    this.camera.position.lerp(targetPosition, 1 - Math.exp(-5 * deltaSeconds));
+    this.lookTarget
+      .copy(this.camera.position)
+      .add(new Vector3(0, 8, -1.4));
+    this.camera.lookAt(this.lookTarget);
+  }
+
   toCameraRelativeMovement(input: Vector2): Vector2 {
     this.movementForward.set(-Math.sin(this.yaw), -Math.cos(this.yaw));
 

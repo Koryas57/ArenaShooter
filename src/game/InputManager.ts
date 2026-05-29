@@ -4,6 +4,8 @@ export type InputAction =
   | { type: 'jump' }
   | { type: 'shoot' }
   | { type: 'reload' }
+  | { type: 'pause-toggle' }
+  | { type: 'restart' }
   | { type: 'helper-toggle' }
   | { type: 'debug-toggle' }
   | { type: 'sensitivity-down' }
@@ -171,6 +173,11 @@ export class InputManager {
 
     if (event.code === 'KeyR') {
       this.queuedActions.push({ type: 'reload' });
+      return;
+    }
+
+    if (event.code === 'Escape') {
+      this.queuedActions.push({ type: 'pause-toggle' });
       return;
     }
 
