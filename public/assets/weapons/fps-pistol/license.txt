@@ -1,0 +1,11 @@
+Model Information:
+* title:	Low poly FPS Pistol Animated maj 07/06/2022
+* source:	https://sketchfab.com/3d-models/low-poly-fps-pistol-animated-maj-07062022-baa81cafeeef4a099c698c4a6c380057
+* author:	ImageParSeconde (https://sketchfab.com/ImageParSeconde)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Low poly FPS Pistol Animated maj 07/06/2022" (https://sketchfab.com/3d-models/low-poly-fps-pistol-animated-maj-07062022-baa81cafeeef4a099c698c4a6c380057) by ImageParSeconde (https://sketchfab.com/ImageParSeconde) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
